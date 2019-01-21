@@ -53,6 +53,7 @@
         "hostingPlanName": "[concat(parameters('appName'), '-func-plan')]",
         "functionAppStorage": "[concat(parameters('appName'), 'func', uniqueString(resourceGroup().Id))]",
         "backendFunctionsName": "[concat(parameters('appName'), '-func-', uniqueString(resourceGroup().Id))]",
+        "cosmosDbName": "[concat(parameters('appName'), '-cosmosdb-', uniqueString(resourceGroup().Id))]",
         "functionsSourceGit": "https://github.com/azurecz/kudos-app-functions.git",
         "hostnameAzure": [],
         "hostnameCustom": [
@@ -250,6 +251,53 @@
                         "value": "[variables('backendFunctionsName')]"
                     }
                 }
+            }
+        },
+        {
+            "type": "Microsoft.DocumentDB/databaseAccounts",
+            "name": "[variables('cosmosDbName')]",
+            "apiVersion": "2015-04-08",
+            "kind": "GlobalDocumentDB",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "ipRangeFilter": "104.42.195.92,40.76.54.131,52.176.6.30,52.169.50.45,52.187.184.26,0.0.0.0",
+                "enableAutomaticFailover": false,
+                "enableMultipleWriteLocations": true,
+                "isVirtualNetworkFilterEnabled": false,
+                "virtualNetworkRules": [],
+                "EnabledApiTypes": "Sql",
+                "databaseAccountOfferType": "Standard",
+                "consistencyPolicy": {
+                    "defaultConsistencyLevel": "Session",
+                    "maxIntervalInSeconds": 5,
+                    "maxStalenessPrefix": 100
+                },
+                "writeLocations": [
+                    {
+                        "locationName": "[resourceGroup().location]",
+                        "failoverPriority": 0
+                    }
+                ],
+                "readLocations": [
+                    {
+                        "locationName": "[resourceGroup().location]",
+                        "failoverPriority": 0
+                    }
+                ],
+                "locations": [
+                    {
+                        "locationName": "[resourceGroup().location]",
+                        "failoverPriority": 0
+                    }
+                ],
+                "failoverPolicies": [
+                    {
+                        "locationName": "[resourceGroup().location]",
+                        "failoverPriority": 0
+                    }
+                ],
+                "cors": [],
+                "capabilities": []
             }
         }
     ],
