@@ -1,7 +1,7 @@
 # kudos-app
 HR Kudos application leveraging Azure PaaS including serverless, API Management, AAD, CosmosDB, PowerBI and others
 
-** Work in progress ***
+** Work in progress **
 
 # Deploy to Azure via portal
 Click button and follow wizard.
