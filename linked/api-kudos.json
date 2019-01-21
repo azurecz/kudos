@@ -1,0 +1,447 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "apimName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of existing API Management instance"
+            }
+        },
+        "backendFunctionsName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of existing backend Function App"
+            }
+        }
+    },
+    "variables": {
+        "apimName": "[parameters('apimName')]",
+        "backendFunctionsName": "[parameters('backendFunctionsName')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ApiManagement/service/api-version-sets",
+            "name": "[concat(variables('apimName'), '/kudos')]",
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "displayName": "Kudos API",
+                "description": "API for Kudos functionality.",
+                "versioningScheme": "Header",
+                "versionQueryName": null,
+                "versionHeaderName": "Api-Version"
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis",
+            "name": "[concat(variables('apimName'), '/kudosv1')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/api-version-sets', variables('apimName'), 'kudos')]"
+            ],
+            "apiVersion": "2018-01-01",
+            "scale": null,
+            "properties": {
+                "displayName": "Kudos API",
+                "apiRevision": "1",
+                "description": "v1 implementaiton of Kudos API using Mock.",
+                "serviceUrl": null,
+                "path": "",
+                "protocols": [
+                    "https"
+                ],
+                "authenticationSettings": null,
+                "subscriptionKeyParameterNames": null,
+                "apiVersion": "v1",
+                "apiVersionSetId": "[resourceId('Microsoft.ApiManagement/service/api-version-sets', variables('apimName'), 'kudos')]"
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/products/apis",
+            "name": "[concat(variables('apimName'), '/unlimited/kudosv1')]",
+            "apiVersion": "2018-01-01",
+            "scale": null,
+            "properties": {},
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', variables('apimName'), 'kudosv1')]"
+            ]
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/products/apis",
+            "name": "[concat(variables('apimName'), '/starter/kudosv1')]",
+            "apiVersion": "2018-01-01",
+            "scale": null,
+            "properties": {},
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', variables('apimName'), 'kudosv1')]"
+            ]
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations",
+            "name": "[concat(variables('apimName'), '/kudosv1/querykudos')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', variables('apimName'), 'kudosv1')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "displayName": "Query kudos",
+                "method": "GET",
+                "urlTemplate": "/kudos",
+                "templateParameters": [],
+                "description": "Read or search kudos",
+                "request": {
+                    "queryParameters": [
+                        {
+                            "name": "giver",
+                            "description": "User giving kudos (eg. mnovak)",
+                            "type": "string",
+                            "required": false,
+                            "values": []
+                        },
+                        {
+                            "name": "receiver",
+                            "description": "User receiving kudos (eg. mnovak)",
+                            "type": "string",
+                            "required": false,
+                            "values": []
+                        }
+                    ],
+                    "headers": [],
+                    "representations": []
+                },
+                "responses": [
+                    {
+                        "statusCode": 200,
+                        "description": "Returns list of kudos based on query",
+                        "representations": [
+                            {
+                                "contentType": "application/json",
+                                "sample": "[[\n    {\n        \"id\": 1,\n        \"giver\": \"user1\",\n        \"receiver\": \"user2\",\n        \"category\": \"Helping others\",\n        \"description\": \"Kudos for helping me setting up my pc\",\n        \"link\": {\n            \"rel\": \"kudos\",\n            \"href\": \"/kudos/1\"\n        }\n    },\n    {\n        \"id\": 2,\n        \"giver\": \"user1\",\n        \"receiver\": \"user3\",\n        \"category\": \"Helping others\",\n        \"description\": \"Kudos for helping me setting up my phone\",\n        \"link\": {\n            \"rel\": \"kudos\",\n            \"href\": \"/kudos/2\"\n        }\n    }\n]"
+                            }
+                        ],
+                        "headers": []
+                    },
+                    {
+                        "statusCode": 400,
+                        "description": "No record matched or invalid request",
+                        "representations": [],
+                        "headers": []
+                    }
+                ],
+                "policies": null
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+            "name": "[concat(variables('apimName'), '/kudosv1/querykudos/policy')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', variables('apimName'), 'kudosv1', 'querykudos')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "policyContent": "<policies>\n    <inbound>\n        <base />\n        <mock-response status-code=\"200\" content-type=\"application/json\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound>\n        <base />\n    </outbound>\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+                "contentFormat": "xml"
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations",
+            "name": "[concat(variables('apimName'), '/kudosv1/givekudos')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', variables('apimName'), 'kudosv1')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "displayName": "Create kudos",
+                "method": "POST",
+                "urlTemplate": "/kudos",
+                "templateParameters": [],
+                "description": "Give kudos to receiver",
+                "request": {
+                    "queryParameters": [],
+                    "headers": [],
+                    "representations": [
+                        {
+                            "contentType": "application/json",
+                            "sample": "{\n    \"giver\": \"user1\",\n    \"receiver\": \"user2\",\n    \"category\": \"Helping others\",\n    \"description\": \"Kudos for helping me setting up my pc\"\n}"
+                        }
+                    ]
+                },
+                "responses": [
+                    {
+                        "statusCode": 201,
+                        "description": "Kudos successfully created",
+                        "representations": [
+                            {
+                                "contentType": "application/json",
+                                "sample": "{\n    \"id\": 1,\n    \"giver\": \"user1\",\n    \"receiver\": \"user2\",\n    \"category\": \"Helping others\",\n    \"description\": \"Kudos for helping me setting up my pc\",\n    \"link\": {\n        \"rel\": \"kudos\",\n        \"href\": \"./kudos/1\"\n    }\n}"
+                            }
+                        ],
+                        "headers": []
+                    },
+                    {
+                        "statusCode": 400,
+                        "description": "Invalid request",
+                        "representations": [],
+                        "headers": []
+                    }
+                ],
+                "policies": null
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+            "name": "[concat(variables('apimName'), '/kudosv1/givekudos/policy')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', variables('apimName'), 'kudosv1', 'givekudos')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "policyContent": "<policies>\n    <inbound>\n        <base />\n        <mock-response status-code=\"201\" content-type=\"application/json\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound>\n        <base />\n    </outbound>\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+                "contentFormat": "xml"
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations",
+            "name": "[concat(variables('apimName'), '/kudosv1/updatekudos')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', variables('apimName'), 'kudosv1')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "displayName": "Update kudos",
+                "method": "PUT",
+                "urlTemplate": "/kudos/{id}",
+                "templateParameters": [
+                    {
+                        "name": "id",
+                        "type": "",
+                        "required": true,
+                        "values": []
+                    }
+                ],
+                "description": "Update kudos details",
+                "request": {
+                    "queryParameters": [],
+                    "headers": [],
+                    "representations": [
+                        {
+                            "contentType": "application/json",
+                            "sample": "{\n    \"giver\": \"user1\",\n    \"receiver\": \"user2\",\n    \"category\": \"Helping others\",\n    \"description\": \"Kudos for helping me setting up my pc\"\n}"
+                        }
+                    ]
+                },
+                "responses": [
+                    {
+                        "statusCode": 201,
+                        "description": "Kudos successfully updated",
+                        "representations": [
+                            {
+                                "contentType": "application/json",
+                                "sample": "{\n    \"id\": 1,\n    \"giver\": \"user1\",\n    \"receiver\": \"user2\",\n    \"category\": \"Helping others\",\n    \"description\": \"Kudos for helping me setting up my pc\",\n    \"link\": {\n        \"rel\": \"kudos\",\n        \"href\": \"./kudos/1\"\n    }\n}"
+                            }
+                        ],
+                        "headers": []
+                    }
+                ],
+                "policies": null
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+            "name": "[concat(variables('apimName'), '/kudosv1/updatekudos/policy')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', variables('apimName'), 'kudosv1', 'updatekudos')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "policyContent": "<policies>\n    <inbound>\n        <base />\n        <mock-response status-code=\"201\" content-type=\"application/json\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound>\n        <base />\n    </outbound>\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+                "contentFormat": "xml"
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations",
+            "name": "[concat(variables('apimName'), '/kudosv1/readkudos')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', variables('apimName'), 'kudosv1')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "displayName": "Read kudos",
+                "method": "GET",
+                "urlTemplate": "/kudos/{id}",
+                "templateParameters": [
+                    {
+                        "name": "id",
+                        "type": "",
+                        "required": true,
+                        "values": []
+                    }
+                ],
+                "description": "Read single kudos by id",
+                "request": {
+                    "queryParameters": [],
+                    "headers": [],
+                    "representations": []
+                },
+                "responses": [
+                    {
+                        "statusCode": 200,
+                        "description": "Returns single kudos by id",
+                        "representations": [
+                            {
+                                "contentType": "application/json",
+                                "sample": "{\n        \"id\": 1,\n        \"giver\": \"user1\",\n        \"receiver\": \"user2\",\n        \"category\": \"Helping others\",\n        \"description\": \"Kudos for helping me setting up my pc\",\n        \"link\": {\n            \"rel\": \"kudos\",\n            \"href\": \"./kudos/1\"\n        }\n    },\n    {\n        \"id\": 2,\n        \"giver\": \"user1\",\n        \"receiver\": \"user3\",\n        \"category\": \"Helping others\",\n        \"description\": \"Kudos for helping me setting up my phone\",\n        \"link\": {\n            \"rel\": \"kudos\",\n            \"href\": \"./kudos/2\"\n        }\n    }"
+                            }
+                        ],
+                        "headers": []
+                    },
+                    {
+                        "statusCode": 404,
+                        "description": "Kudos path does not exist",
+                        "representations": [],
+                        "headers": []
+                    }
+                ],
+                "policies": null
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+            "name": "[concat(variables('apimName'), '/kudosv1/readkudos/policy')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', variables('apimName'), 'kudosv1', 'readkudos')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "policyContent": "<policies>\n    <inbound>\n        <base />\n        <mock-response status-code=\"200\" content-type=\"application/json\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound>\n        <base />\n    </outbound>\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+                "contentFormat": "xml"
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations",
+            "name": "[concat(variables('apimName'), '/kudosv1/deletekudos')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', variables('apimName'), 'kudosv1')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "displayName": "Delete kudos",
+                "method": "DELETE",
+                "urlTemplate": "/kudos/{id}",
+                "templateParameters": [
+                    {
+                        "name": "id",
+                        "type": "",
+                        "required": true,
+                        "values": []
+                    }
+                ],
+                "description": "Delete kudos by id",
+                "request": {
+                    "queryParameters": [],
+                    "headers": [],
+                    "representations": []
+                },
+                "responses": [
+                    {
+                        "statusCode": 204,
+                        "description": "Kudos successfully deleted",
+                        "representations": [],
+                        "headers": []
+                    },
+                    {
+                        "statusCode": 400,
+                        "description": "Cannot delete kudos",
+                        "representations": [],
+                        "headers": []
+                    },
+                    {
+                        "statusCode": 404,
+                        "description": "Kudos path does not exist",
+                        "representations": [],
+                        "headers": []
+                    }
+                ],
+                "policies": null
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+            "name": "[concat(variables('apimName'), '/kudosv1/deletekudos/policy')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', variables('apimName'), 'kudosv1', 'deletekudos')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "policyContent": "<policies>\n    <inbound>\n        <base />\n        <mock-response status-code=\"204\" content-type=\"application/json\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound>\n        <base />\n    </outbound>\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+                "contentFormat": "xml"
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations",
+            "name": "[concat(variables('apimName'), '/kudosv1/queryusers')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis', variables('apimName'), 'kudosv1')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "displayName": "Query users",
+                "method": "GET",
+                "urlTemplate": "/users",
+                "templateParameters": [],
+                "description": "Query users",
+                "request": {
+                    "queryParameters": [
+                        {
+                            "name": "username",
+                            "description": "Username (eg. mnovak)",
+                            "type": "string",
+                            "required": false,
+                            "values": []
+                        },
+                        {
+                            "name": "fullname",
+                            "description": "Full user name (eg. Martin Novak)",
+                            "type": "string",
+                            "required": false,
+                            "values": []
+                        }
+                    ],
+                    "headers": [],
+                    "representations": []
+                },
+                "responses": [
+                    {
+                        "statusCode": 200,
+                        "description": "Returns list of users based on query",
+                        "representations": [
+                            {
+                                "contentType": "application/json",
+                                "sample": "[[\n    {\n        \"id\": 1,\n        \"giver\": \"user1\",\n        \"receiver\": \"user2\",\n        \"category\": \"Helping others\",\n        \"description\": \"Kudos for helping me setting up my pc\",\n        \"link\": {\n            \"rel\": \"kudos\",\n            \"href\": \"/kudos/1\"\n        }\n    },\n    {\n        \"id\": 2,\n        \"giver\": \"user1\",\n        \"receiver\": \"user3\",\n        \"category\": \"Helping others\",\n        \"description\": \"Kudos for helping me setting up my phone\",\n        \"link\": {\n            \"rel\": \"kudos\",\n            \"href\": \"/kudos/2\"\n        }\n    }\n]"
+                            }
+                        ],
+                        "headers": []
+                    },
+                    {
+                        "statusCode": 400,
+                        "description": "No record matched or invalid request",
+                        "representations": [],
+                        "headers": []
+                    }
+                ],
+                "policies": null
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/apis/operations/policies",
+            "name": "[concat(variables('apimName'), '/kudosv1/queryusers/policy')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/apis/operations', variables('apimName'), 'kudosv1', 'queryusers')]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "policyContent": "<policies>\n    <inbound>\n        <base />\n        <mock-response status-code=\"200\" content-type=\"application/json\" />\n    </inbound>\n    <backend>\n        <base />\n    </backend>\n    <outbound>\n        <base />\n    </outbound>\n    <on-error>\n        <base />\n    </on-error>\n</policies>",
+                "contentFormat": "xml"
+            }
+        }
+    ]
+}

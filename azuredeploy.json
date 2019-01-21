@@ -1,0 +1,257 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appName": {
+            "type": "string",
+            "defaultValue": "kudos",
+            "metadata": {
+                "description": "Prefix for all deployed resources"
+            }
+        },
+        "domainType": {
+            "type": "string",
+            "defaultValue": "Azure",
+            "allowedValues": [
+                "Azure",
+                "Custom"
+            ],
+            "metadata": {
+                "description": "Flag whether to setup custom domain for API Management instance or built in (azure)"
+            }
+        },
+        "domain": {
+            "type": "string",
+            "defaultValue": "mujazure.tk",
+            "metadata": {
+                "description": "If custom domain is used provide domain name"
+            }
+        },
+        "pfx": {
+            "type": "securestring",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Wildcard certificate for custom domain in PFX format encoded as base64"
+            }
+        },
+        "pfxPassword": {
+            "type": "securestring",
+            "defaultValue": "Azure12345678",
+            "metadata": {
+                "description": "Password for PFX certificate"
+            }
+        }
+    },
+    "variables": {
+        "linkedBaseUrl": "https://github.com/azurecz/kudos-app/raw/master/linked/",
+        "publisherEmail": "someemail@domain.cz",
+        "publisherName": "Organization",
+        "sku": "Developer",
+        "instances": 1,
+        "apimName": "[concat(parameters('appName'), '-apim-', uniqueString(resourceGroup().Id))]",
+        "appInsightsName": "[concat(parameters('appName'), '-insights')]",
+        "hostingPlanName": "[concat(parameters('appName'), '-func-plan')]",
+        "functionAppStorage": "[concat(parameters('appName'), 'func', uniqueString(resourceGroup().Id))]",
+        "backendFunctionsName": "[concat(parameters('appName'), '-func-', uniqueString(resourceGroup().Id))]",
+        "functionsSourceGit": "https://github.com/azurecz/kudos-app-functions.git",
+        "hostnameAzure": [],
+        "hostnameCustom": [
+            {
+                "type": "Proxy",
+                "hostName": "[concat('api.', parameters('domain'))]",
+                "encodedCertificate": "[parameters('pfx')]",
+                "certificatePassword": "[parameters('pfxPassword')]",
+                "negotiateClientCertificate": false
+            },
+            {
+                "type": "Portal",
+                "hostName": "[concat('portal.', parameters('domain'))]",
+                "encodedCertificate": "[parameters('pfx')]",
+                "certificatePassword": "[parameters('pfxPassword')]",
+                "negotiateClientCertificate": false
+            }
+        ]
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ApiManagement/service",
+            "name": "[variables('apimName')]",
+            "comments": "Production instance of API Management",
+            "apiVersion": "2018-06-01-preview",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "sku": {
+                "name": "[variables('sku')]",
+                "capacity": "[variables('instances')]"
+            },
+            "properties": {
+                "publisherEmail": "[variables('publisherEmail')]",
+                "publisherName": "[variables('publisherName')]",
+                "hostnameConfigurations": "[variables(concat('hostname', parameters('domainType')))]"
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/loggers",
+            "name": "[concat(variables('apimName'), '/', variables('appInsightsName'))]",
+            "comments": "App Insights integration",
+            "dependsOn": [
+                "[variables('apimName')]",
+                "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "loggerType": "applicationInsights",
+                "description": "Logger to Application Insights",
+                "credentials": {
+                    "instrumentationKey": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2015-05-01').InstrumentationKey]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.ApiManagement/service/diagnostics",
+            "name": "[concat(variables('apimName'), '/applicationinsights')]",
+            "comments": "Turn on diagnostics",
+            "dependsOn": [
+                "[resourceId('Microsoft.ApiManagement/service/loggers', variables('apimName'), variables('appInsightsName'))]"
+            ],
+            "apiVersion": "2018-06-01-preview",
+            "properties": {
+                "alwaysLog": "allErrors",
+                "loggerId": "[concat('/loggers/', variables('appInsightsName'))]",
+                "frontend": {
+                    "request": {
+                        "headers": [],
+                        "body": {
+                            "bytes": 1024
+                        }
+                    },
+                    "response": {
+                        "headers": [],
+                        "body": {
+                            "bytes": 1024
+                        }
+                    }
+                },
+                "backend": {
+                    "request": {
+                        "headers": [],
+                        "body": {
+                            "bytes": 1024
+                        }
+                    },
+                    "response": {
+                        "headers": [],
+                        "body": {
+                            "bytes": 1024
+                        }
+                    }
+                },
+                "enableHttpCorrelationHeaders": true
+            }
+        },
+        {
+            "type": "Microsoft.Insights/components",
+            "name": "[variables('appInsightsName')]",
+            "comments": "Application Insights for production APIM",
+            "apiVersion": "2014-04-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "ApplicationId": "[variables('appInsightsName')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2015-04-01",
+            "name": "[variables('hostingPlanName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "name": "[variables('hostingPlanName')]",
+                "sku": "Basic",
+                "workerSize": 0,
+                "numberOfWorkers": 1
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "name": "[variables('functionAppStorage')]",
+            "apiVersion": "2016-12-01",
+            "location": "[resourceGroup().location]",
+            "kind": "Storage",
+            "sku": {
+                "name": "Standard_LRS"
+            }
+        },
+        {
+            "apiVersion": "2015-08-01",
+            "type": "Microsoft.Web/sites",
+            "name": "[variables('backendFunctionsName')]",
+            "location": "[resourceGroup().location]",
+            "kind": "functionapp",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('functionAppStorage'))]"
+            ],
+            "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+                "siteConfig": {
+                    "alwaysOn": true,
+                    "appSettings": [
+                        {
+                            "name": "AzureWebJobsDashboard",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('functionAppStorage'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('functionAppStorage')), '2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "AzureWebJobsStorage",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('functionAppStorage'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('functionAppStorage')), '2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "FUNCTIONS_EXTENSION_VERSION",
+                            "value": "~1"
+                        },
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2014-04-01').InstrumentationKey]"
+                        }
+                    ]
+                }
+            },
+            "resources": [
+                {
+                    "apiVersion": "2015-08-01",
+                    "name": "web",
+                    "type": "sourcecontrols",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Web/sites/', variables('backendFunctionsName'))]"
+                    ],
+                    "properties": {
+                        "RepoUrl": "[variables('functionsSourceGit')]",
+                        "branch": "master",
+                        "IsManualIntegration": "true"
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "name": "api-kudos",
+            "comments": "Call linked template to create Kudos API in API Management",
+            "apiVersion": "2017-05-10",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(variables('linkedBaseUrl'), 'api-kudos.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "apiName": {
+                        "value": "[variables('apimName')]"
+                    },
+                    "backendFunctionsName": {
+                        "value": "[variables('backendFunctionsName')]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}
