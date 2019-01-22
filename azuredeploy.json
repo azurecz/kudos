@@ -9,6 +9,13 @@
                 "description": "Prefix for all deployed resources"
             }
         },
+        "backendType": {
+            "type": "string",
+            "defaultValue": "Functions",
+            "allowedValues": [
+                "Functions"
+            ]
+        },
         "domainType": {
             "type": "string",
             "defaultValue": "Azure",
@@ -43,265 +50,63 @@
         }
     },
     "variables": {
-        "linkedBaseUrl": "https://github.com/azurecz/kudos-app/raw/master/linked/",
-        "publisherEmail": "someemail@domain.cz",
-        "publisherName": "Organization",
-        "sku": "Developer",
-        "instances": 1,
-        "apimName": "[concat(parameters('appName'), '-apim-', uniqueString(resourceGroup().Id))]",
-        "appInsightsName": "[concat(parameters('appName'), '-insights')]",
-        "hostingPlanName": "[concat(parameters('appName'), '-func-plan')]",
-        "functionAppStorage": "[concat(parameters('appName'), 'func', uniqueString(resourceGroup().Id))]",
-        "backendFunctionsName": "[concat(parameters('appName'), '-func-', uniqueString(resourceGroup().Id))]",
-        "cosmosDbName": "[concat(parameters('appName'), '-cosmosdb-', uniqueString(resourceGroup().Id))]",
-        "functionsSourceGit": "https://github.com/azurecz/kudos-app-functions.git",
-        "hostnameAzure": [],
-        "hostnameCustom": [
-            {
-                "type": "Proxy",
-                "hostName": "[concat('api.', parameters('domain'))]",
-                "encodedCertificate": "[parameters('pfx')]",
-                "certificatePassword": "[parameters('pfxPassword')]",
-                "negotiateClientCertificate": false
-            },
-            {
-                "type": "Portal",
-                "hostName": "[concat('portal.', parameters('domain'))]",
-                "encodedCertificate": "[parameters('pfx')]",
-                "certificatePassword": "[parameters('pfxPassword')]",
-                "negotiateClientCertificate": false
-            }
-        ]
+        "apimRepoUrl": "https://github.com/azurecz/kudos-apim/raw/master/azuredeploy.json",
+        "backendFunctionsRepoUrl": "https://github.com/azurecz/kudos-functions-code/raw/master/azuredeploy.json"
     },
     "resources": [
         {
-            "type": "Microsoft.ApiManagement/service",
-            "name": "[variables('apimName')]",
-            "comments": "Production instance of API Management",
-            "apiVersion": "2018-06-01-preview",
-            "location": "[resourceGroup().location]",
-            "tags": {},
-            "sku": {
-                "name": "[variables('sku')]",
-                "capacity": "[variables('instances')]"
-            },
-            "properties": {
-                "publisherEmail": "[variables('publisherEmail')]",
-                "publisherName": "[variables('publisherName')]",
-                "hostnameConfigurations": "[variables(concat('hostname', parameters('domainType')))]"
-            }
-        },
-        {
-            "type": "Microsoft.ApiManagement/service/loggers",
-            "name": "[concat(variables('apimName'), '/', variables('appInsightsName'))]",
-            "comments": "App Insights integration",
-            "dependsOn": [
-                "[variables('apimName')]",
-                "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
-            ],
-            "apiVersion": "2018-06-01-preview",
-            "properties": {
-                "loggerType": "applicationInsights",
-                "description": "Logger to Application Insights",
-                "credentials": {
-                    "instrumentationKey": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2015-05-01').InstrumentationKey]"
-                }
-            }
-        },
-        {
-            "type": "Microsoft.ApiManagement/service/diagnostics",
-            "name": "[concat(variables('apimName'), '/applicationinsights')]",
-            "comments": "Turn on diagnostics",
-            "dependsOn": [
-                "[resourceId('Microsoft.ApiManagement/service/loggers', variables('apimName'), variables('appInsightsName'))]"
-            ],
-            "apiVersion": "2018-06-01-preview",
-            "properties": {
-                "alwaysLog": "allErrors",
-                "loggerId": "[concat('/loggers/', variables('appInsightsName'))]",
-                "frontend": {
-                    "request": {
-                        "headers": [],
-                        "body": {
-                            "bytes": 1024
-                        }
-                    },
-                    "response": {
-                        "headers": [],
-                        "body": {
-                            "bytes": 1024
-                        }
-                    }
-                },
-                "backend": {
-                    "request": {
-                        "headers": [],
-                        "body": {
-                            "bytes": 1024
-                        }
-                    },
-                    "response": {
-                        "headers": [],
-                        "body": {
-                            "bytes": 1024
-                        }
-                    }
-                },
-                "enableHttpCorrelationHeaders": true
-            }
-        },
-        {
-            "type": "Microsoft.Insights/components",
-            "name": "[variables('appInsightsName')]",
-            "comments": "Application Insights for production APIM",
-            "apiVersion": "2014-04-01",
-            "location": "[resourceGroup().location]",
-            "properties": {
-                "ApplicationId": "[variables('appInsightsName')]"
-            }
-        },
-        {
-            "type": "Microsoft.Web/serverfarms",
-            "apiVersion": "2015-04-01",
-            "name": "[variables('hostingPlanName')]",
-            "location": "[resourceGroup().location]",
-            "properties": {
-                "name": "[variables('hostingPlanName')]",
-                "sku": "Basic",
-                "workerSize": 0,
-                "numberOfWorkers": 1
-            }
-        },
-        {
-            "type": "Microsoft.Storage/storageAccounts",
-            "name": "[variables('functionAppStorage')]",
-            "apiVersion": "2016-12-01",
-            "location": "[resourceGroup().location]",
-            "kind": "Storage",
-            "sku": {
-                "name": "Standard_LRS"
-            }
-        },
-        {
-            "apiVersion": "2015-08-01",
-            "type": "Microsoft.Web/sites",
-            "name": "[variables('backendFunctionsName')]",
-            "location": "[resourceGroup().location]",
-            "kind": "functionapp",
-            "dependsOn": [
-                "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
-                "[resourceId('Microsoft.Storage/storageAccounts', variables('functionAppStorage'))]"
-            ],
-            "properties": {
-                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
-                "siteConfig": {
-                    "alwaysOn": true,
-                    "appSettings": [
-                        {
-                            "name": "AzureWebJobsDashboard",
-                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('functionAppStorage'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('functionAppStorage')), '2015-05-01-preview').key1)]"
-                        },
-                        {
-                            "name": "AzureWebJobsStorage",
-                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('functionAppStorage'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('functionAppStorage')), '2015-05-01-preview').key1)]"
-                        },
-                        {
-                            "name": "FUNCTIONS_EXTENSION_VERSION",
-                            "value": "~1"
-                        },
-                        {
-                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
-                            "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2014-04-01').InstrumentationKey]"
-                        },
-                        {
-                            "name": "kudos_COSMOSDB",
-                            "value": "[concat('AccountEndpoint=https://', variables('cosmosDbName'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('cosmosDbName')), '2015-04-08').primaryMasterKey)]"
-                        }
-                    ]
-                }
-            },
-            "resources": [
-                {
-                    "apiVersion": "2015-08-01",
-                    "name": "web",
-                    "type": "sourcecontrols",
-                    "dependsOn": [
-                        "[resourceId('Microsoft.Web/sites/', variables('backendFunctionsName'))]"
-                    ],
-                    "properties": {
-                        "RepoUrl": "[variables('functionsSourceGit')]",
-                        "branch": "master",
-                        "IsManualIntegration": "true"
-                    }
-                }
-            ]
-        },
-        {
             "type": "Microsoft.Resources/deployments",
-            "name": "api-kudos",
-            "comments": "Call linked template to create Kudos API in API Management",
+            "name": "backend-functions",
+            "condition": "[equals(parameters('backendType'), 'Functions')]",
+            "comments": "Deploy backend based on Functions and Cosmos DB",
             "apiVersion": "2017-05-10",
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[concat(variables('linkedBaseUrl'), 'api-kudos.json')]",
+                    "uri": "[concat(variables('apimRepoUrl'))]",
                     "contentVersion": "1.0.0.0"
                 },
                 "parameters": {
-                    "apimName": {
-                        "value": "[variables('apimName')]"
-                    },
-                    "backendFunctionsName": {
-                        "value": "[variables('backendFunctionsName')]"
+                    "appName": {
+                        "value": "[parameters('appName')]"
                     }
                 }
             }
         },
         {
-            "type": "Microsoft.DocumentDB/databaseAccounts",
-            "name": "[variables('cosmosDbName')]",
-            "apiVersion": "2015-04-08",
-            "kind": "GlobalDocumentDB",
-            "location": "[resourceGroup().location]",
+            "type": "Microsoft.Resources/deployments",
+            "name": "apim",
+            "comments": "Call template in kudos-apim repo to deploy API Management",
+            "dependsOn": [
+                "backend-functions"
+            ],
+            "apiVersion": "2017-05-10",
             "properties": {
-                "ipRangeFilter": "104.42.195.92,40.76.54.131,52.176.6.30,52.169.50.45,52.187.184.26,0.0.0.0",
-                "enableAutomaticFailover": false,
-                "enableMultipleWriteLocations": true,
-                "isVirtualNetworkFilterEnabled": false,
-                "virtualNetworkRules": [],
-                "EnabledApiTypes": "Sql",
-                "databaseAccountOfferType": "Standard",
-                "consistencyPolicy": {
-                    "defaultConsistencyLevel": "Session",
-                    "maxIntervalInSeconds": 5,
-                    "maxStalenessPrefix": 100
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(variables('apimRepoUrl'))]",
+                    "contentVersion": "1.0.0.0"
                 },
-                "writeLocations": [
-                    {
-                        "locationName": "[resourceGroup().location]",
-                        "failoverPriority": 0
+                "parameters": {
+                    "appName": {
+                        "value": "[parameters('appName')]"
+                    },
+                    "backendType": {
+                        "value": "[parameters('backendType')]"
+                    },
+                    "domainType": {
+                        "value": "[parameters('domainType')]"
+                    },
+                    "domain": {
+                        "value": "[parameters('domain')]"
+                    },
+                    "pfx": {
+                        "value": "[parameters('pfx')]"
+                    },
+                    "pfxPassword": {
+                        "value": "[parameters('pfxPassword')]"
                     }
-                ],
-                "readLocations": [
-                    {
-                        "locationName": "[resourceGroup().location]",
-                        "failoverPriority": 0
-                    }
-                ],
-                "locations": [
-                    {
-                        "locationName": "[resourceGroup().location]",
-                        "failoverPriority": 0
-                    }
-                ],
-                "failoverPolicies": [
-                    {
-                        "locationName": "[resourceGroup().location]",
-                        "failoverPriority": 0
-                    }
-                ],
-                "cors": [],
-                "capabilities": []
+                }
             }
         }
     ],
