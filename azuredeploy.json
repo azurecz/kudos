@@ -212,6 +212,10 @@
                         {
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
                             "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2014-04-01').InstrumentationKey]"
+                        },
+                        {
+                            "name": "kudos_COSMOSDB",
+                            "value": "[concat('AccountEndpoint=https://', variables('cosmosDbName'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('cosmosDbName')), '2015-04-08').primaryMasterKey)]"
                         }
                     ]
                 }
