@@ -26,3 +26,4 @@ az group deployment create -g kudos --template-file azuredeploy.json
 Visit individual repos and deploy repo by repo. Please make sure you follow correct order:
 1. Backend
 2. API Management
+3. Frontend

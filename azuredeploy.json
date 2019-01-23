@@ -16,6 +16,13 @@
                 "Functions"
             ]
         },
+        "frontendType": {
+            "type": "string",
+            "defaultValue": "WebApp",
+            "allowedValues": [
+                "WebApp"
+            ]
+        },
         "domainType": {
             "type": "string",
             "defaultValue": "Azure",
@@ -51,7 +58,8 @@
     },
     "variables": {
         "apimRepoUrl": "https://github.com/azurecz/kudos-apim/raw/master/azuredeploy.json",
-        "backendFunctionsRepoUrl": "https://github.com/azurecz/kudos-functions-code/raw/master/azuredeploy.json"
+        "backendFunctionsRepoUrl": "https://github.com/azurecz/kudos-backend-functions/raw/master/azuredeploy.json",
+        "frontendWebAppRepoUrl": "https://github.com/azurecz/kudos-frontend-webapp/raw/master/azuredeploy.json"
     },
     "resources": [
         {
@@ -63,7 +71,7 @@
             "properties": {
                 "mode": "Incremental",
                 "templateLink": {
-                    "uri": "[concat(variables('apimRepoUrl'))]",
+                    "uri": "[concat(variables('backendFunctionsRepoUrl'))]",
                     "contentVersion": "1.0.0.0"
                 },
                 "parameters": {
@@ -105,6 +113,25 @@
                     },
                     "pfxPassword": {
                         "value": "[parameters('pfxPassword')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "name": "frontend-webapp",
+            "condition": "[equals(parameters('frontendType'), 'WebApp')]",
+            "comments": "Deploy frontend SPA in WebApp",
+            "apiVersion": "2017-05-10",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat(variables('frontendWebAppRepoUrl'))]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "appName": {
+                        "value": "[parameters('appName')]"
                     }
                 }
             }
