@@ -24,6 +24,6 @@ az group deployment create -g kudos --template-file azuredeploy.json
 
 # Deploy individual components
 Visit individual repos and deploy repo by repo. Please make sure you follow correct order:
-1. Backend
-2. API Management
-3. Frontend
+1. Backend, currently only Functions implementation in [kudos-backend-functions](https://github.com/azurecz/kudos-backend-functions)
+2. API Management in [kudos-apim](https://github.com/azurecz/kudos-apim)
+3. Frontend, currently served via WebApp deployed by [kudos-frontend-webapp](https://github.com/azurecz/kudos-frontend-webapp)
