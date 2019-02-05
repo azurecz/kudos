@@ -14,14 +14,31 @@
             "defaultValue": "Functions",
             "allowedValues": [
                 "Functions"
-            ]
+            ],
+            "metadata": {
+                "description": "Choose type of backend. Currently only implementation with Functions is available, in future AKS option will be introduced."
+            }
+        },
+        "deploymentStyle": {
+            "type": "string",
+            "defaultValue": "GitOps",
+            "allowedValues": [
+                "GitOps",
+                "DevOps"
+            ],
+            "metadata": {
+                "description": "Choose deployment style. GitOps to push code directly from GitHub, DevOps if you want to use Azure DevOps to push code."
+            }
         },
         "frontendType": {
             "type": "string",
             "defaultValue": "WebApp",
             "allowedValues": [
                 "WebApp"
-            ]
+            ],
+            "metadata": {
+                "description": "Choose how SPA is delivered. Currently only WebApp is implemented, in future AKS option will be introduced."
+            }
         },
         "domainType": {
             "type": "string",
@@ -132,6 +149,9 @@
                 "parameters": {
                     "appName": {
                         "value": "[parameters('appName')]"
+                    },
+                    "deploymentStyle": {
+                        "value": "[parameters('deploymentStyle')]"
                     }
                 }
             }
