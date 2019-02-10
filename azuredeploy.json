@@ -89,11 +89,14 @@
                 "mode": "Incremental",
                 "templateLink": {
                     "uri": "[concat(variables('backendFunctionsRepoUrl'))]",
-                    "contentVersion": "1.0.0.0"
+                    "contentVersion": "1.0.0.1"
                 },
                 "parameters": {
                     "appName": {
                         "value": "[parameters('appName')]"
+                    },
+                    "deploymentStyle": {
+                        "value": "[parameters('deploymentStyle')]"
                     }
                 }
             }
